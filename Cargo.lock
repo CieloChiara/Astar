@@ -4764,8 +4764,12 @@ dependencies = [
  "pallet-evm-precompile-sr25519",
  "pallet-evm-precompile-substrate-ecdsa",
  "pallet-grandpa",
+ "pallet-multisig",
+ "pallet-nicks",
  "pallet-precompile-dapps-staking",
+ "pallet-proxy",
  "pallet-randomness-collective-flip",
+ "pallet-recovery",
  "pallet-scheduler",
  "pallet-sudo",
  "pallet-timestamp",
@@ -6278,6 +6282,20 @@ version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std 4.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+]
+
+[[package]]
+name = "pallet-nicks"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
  "frame-support",
  "frame-system",
  "parity-scale-codec",

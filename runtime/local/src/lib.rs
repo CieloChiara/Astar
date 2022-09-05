@@ -6,12 +6,12 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     construct_runtime, parameter_types,
     traits::{
-        ConstU32, Currency, EitherOfDiverse, EqualPrivilegeOnly, FindAuthor, Get,
-        KeyOwnerProofSystem, Nothing,
+        ConstU128, ConstU32, Currency, EitherOfDiverse, EqualPrivilegeOnly, FindAuthor, Get,
+        KeyOwnerProofSystem, Nothing, InstanceFilter,
     },
     weights::{
         constants::{RocksDbWeight, WEIGHT_PER_SECOND},
@@ -113,6 +113,11 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 pub type AssetId = u128;
 
+// Add recovery
+pub const MILLICENTS: Balance = 1_000_000_000;
+pub const CENTS: Balance = 1_000 * MILLICENTS;
+pub const DOLLARS: Balance = 100 * CENTS;
+
 impl AddressToAssetId<AssetId> for Runtime {
     fn address_to_asset_id(address: H160) -> Option<AssetId> {
         let mut data = [0u8; 16];
@@ -158,6 +163,13 @@ parameter_types! {
     pub RuntimeBlockLength: BlockLength = BlockLength
         ::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const SS58Prefix: u8 = 5;
+
+    // Add recovery
+    pub const ConfigDepositBase: Balance = 500 * CENTS;
+    pub const FriendDepositFactor: Balance = 50 * CENTS;
+    pub const MaxFriends: u16 = 9;
+    pub const RecoveryDeposit: Balance = 500 * CENTS;
+
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -275,6 +287,159 @@ impl pallet_balances::Config for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_nicks::Config for Runtime {
+    // The Balances pallet implements the ReservableCurrency trait.
+    // `Balances` is defined in `construct_runtime!` macro.
+    type Currency = Balances;
+
+    // Set ReservationFee to a value.
+    type ReservationFee = ConstU128<100>;
+
+    // No action is taken when deposits are forfeited.
+    type Slashed = ();
+
+    // Configure the FRAME System Root origin as the Nick pallet admin.
+    // https://paritytech.github.io/substrate/master/frame_system/enum.RawOrigin.html#variant.Root
+    type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+
+    // Set MinLength of nick name to a desired value.
+    type MinLength = ConstU32<8>;
+
+    // Set MaxLength of nick name to a desired value.
+    type MaxLength = ConstU32<32>;
+
+    // The ubiquitous event type.
+    type Event = Event;
+}
+
+impl pallet_recovery::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type ConfigDepositBase = ConfigDepositBase;
+	type FriendDepositFactor = FriendDepositFactor;
+	type MaxFriends = ConstU32<9>;
+	type RecoveryDeposit = RecoveryDeposit;
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MaxSignatories: u16 = 100;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	// One storage item; key size 32, value size 8; .
+	pub const ProxyDepositBase: Balance = deposit(1, 8);
+	// Additional storage item size of 33 bytes.
+	pub const ProxyDepositFactor: Balance = deposit(0, 33);
+	pub const MaxProxies: u16 = 32;
+	pub const AnnouncementDepositBase: Balance = deposit(1, 8);
+	pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+	pub const MaxPending: u16 = 32;
+}
+
+/// The type used to represent the kinds of proxying allowed.
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+pub enum ProxyType {
+	Any,
+    CancelProxy,
+    NonTransfer,
+	Governance,
+    //Staking,
+	//StakePoolManager,
+}
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+impl InstanceFilter<Call> for ProxyType {
+	fn filter(&self, c: &Call) -> bool {
+		match self {
+			ProxyType::Any => true,
+            ProxyType::CancelProxy => matches!(c, Call::Proxy(pallet_proxy::Call::reject_announcement { .. })),
+			ProxyType::NonTransfer => !matches!(
+				c,
+				Call::Balances(..) |
+				Call::Vesting(pallet_vesting::Call::vested_transfer { .. }) //|
+				//Call::Indices(pallet_indices::Call::transfer { .. })
+			),
+			ProxyType::Governance => matches!(
+				c,
+				Call::Democracy(..) |
+				Call::Council(..) | // Call::Society(..) |
+				//Call::TechnicalCommittee(..) |
+				//Call::Elections(..) | Call::Treasury(..)
+				Call::Treasury(..)
+			),
+			//ProxyType::Staking => matches!(c, Call::Staking(..)),
+			//ProxyType::StakePoolManager => matches!(
+            //    c,
+            //    Call::Utility { .. }
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::add_worker { .. })
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::remove_worker { .. })
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::start_mining { .. })
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::stop_mining { .. })
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::restart_mining { .. })
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::reclaim_pool_worker { .. })
+            //        | Call::PhalaStakePool(pallet_stakepool::Call::create { .. })
+            //        | Call::PhalaRegistry(pallet_registry::Call::register_worker { .. })
+            //        | Call::PhalaMq(pallet_mq::Call::sync_offchain_message { .. })
+            //),
+		}
+	}
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			(ProxyType::NonTransfer, _) => true,
+			_ => false,
+		}
+	}
+}
+
+impl pallet_proxy::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type ProxyType = ProxyType;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type MaxProxies = MaxProxies;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+	type MaxPending = MaxPending;
+	type CallHasher = BlakeTwo256;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 }
 
 parameter_types! {
@@ -794,6 +959,11 @@ construct_runtime!(
         Council: pallet_collective::<Instance1>,
         TechnicalCommittee: pallet_collective::<Instance2>,
         Treasury: pallet_treasury,
+        Nicks: pallet_nicks,
+        Recovery: pallet_recovery,
+        Proxy: pallet_proxy,
+        Multisig: pallet_multisig,
+        //Recovery: pallet_recovery::{Module, Call, Storage, Event<T>},
     }
 );
 

@@ -66,6 +66,12 @@ pallet-evm-precompile-substrate-ecdsa = { git = "https://github.com/AstarNetwork
 pallet-precompile-dapps-staking = { git = "https://github.com/AstarNetwork/astar-frame", branch = "polkadot-v0.9.27", default-features = false }
 pallet-vesting = { git = "https://github.com/AstarNetwork/astar-frame", branch = "polkadot-v0.9.27", default-features = false }
 
+# Add by cielo test
+pallet-nicks = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
+pallet-recovery = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
+pallet-proxy = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
+pallet-multisig = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
+
 # benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false, optional = true }
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false, optional = true }
@@ -117,6 +123,10 @@ std = [
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
 	"pallet-vesting/std",
+	"pallet-nicks/std",
+	"pallet-recovery/std",
+	"pallet-proxy/std",
+	"pallet-multisig/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -148,6 +158,8 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime",
@@ -167,4 +179,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-vesting/try-runtime",
+	"pallet-recovery/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-multisig/try-runtime",
 ]
